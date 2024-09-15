@@ -4,6 +4,7 @@ const { UserModel, TodoModel } = require("./db");
 const { auth, JWT_SECRET } = require("./auth");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
+const { z } = require("zod");
 
 mongoose.connect(
   "mongodb+srv://subhajit:nainasweetheart@cluster0.xl3y5.mongodb.net/"
@@ -13,13 +14,26 @@ const app = express();
 app.use(express.json());
 
 app.post("/signup", async function (req, res) {
-  const email = req.body.email;
-  const password = req.body.password;
-  const name = req.body.name;
+  const { email, password, name } = req.body;
 
-  //any function which is problematic and can throw an error which can crash the server
-  //should be wrapped in try catch block
+  // Step 1: Describe the schema in a Zod object
+  const requiredBody = z.object({
+    email: z.string().email().min(3).max(100),
+    password: z.string().min(3).max(30),
+    name: z.string().min(3).max(100),
+  });
 
+  // Step 2: Validate the request body
+  const parsedDataWithSuccess = requiredBody.safeParse(req.body);
+
+  // Step 3: If the validation fails, throw an error
+  if (!parsedDataWithSuccess.success) {
+    return res.status(400).json({
+      message: "Incorrect format",
+    });
+  }
+
+  // Wrapping in a try-catch block
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     console.log(hashedPassword);
@@ -29,15 +43,17 @@ app.post("/signup", async function (req, res) {
       password: hashedPassword,
       name: name,
     });
+
+    // Send success response if user creation succeeds
+    res.json({
+      message: "You are signed up",
+    });
   } catch (e) {
-    res.status(400).json({
+    // Handle error, e.g., if email already exists
+    return res.status(400).json({
       message: "Email already exists",
     });
   }
-
-  res.json({
-    message: "You are signed up",
-  });
 });
 
 // app.post("/signin", async function (req, res) {
